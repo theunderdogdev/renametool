@@ -1,0 +1,46 @@
+.img-holder {  
+  overflow: hidden; 
+  background-color: black;
+}
+
+.card img {
+  transition: 0.3s;
+ visibility: visible; 
+}
+.card:hover  img {
+  transform: scale(1.2);
+  opacity: 0.5;
+}
+.dropdown-item:hover{
+  background-color: lightgray;
+}
+.transform{
+  transform: translate(12px,20px);
+}
+.dropdown-toggle{outline-style:none}
+.brand{
+  height: 30px;
+  width: 30px;
+}
+.card-img-top{
+  height: 300px;
+}
+.card{
+  box-shadow: 0px 5px 20px gray;
+  transition: 0.3s;
+}
+.card:hover{
+  transform: scale(1.03);
+  transition: 0.3s;
+}
+.valid{
+  border-color:green;
+  box-shadow:0 0 0 .2rem rgba(0,128,0,.25);
+}
+.invalid{
+  border-color:red;
+  box-shadow:0 0 0 .2rem rgba(220,53,69,.25);
+}
+.container{
+  padding-bottom: 10px;
+}
