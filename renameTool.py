@@ -13,7 +13,7 @@ class RenameTool:
         self.opt_menu = None
         self.win.title(window_name)
         self.win.config(bg='#00ff00')
-        self.win.geometry('750x750')
+        self.win.geometry('950x750')
         self.win.resizable(False, False)
         self.rename_label = tk.Label(text="New Name:", height=1, bg='#00ff00', fg='white', font=('Calibri', '15', 'bold'))
         self.rename_label.place(x=5, y=450)
@@ -23,6 +23,7 @@ class RenameTool:
         self.label2.place(x=5, y=45)
         self.output = tk.Text(width=75, height=15, padx=10, pady=5, font='Consolas', fg='green') # noqa
         self.output.place(x=25, y=145)
+        self.output.bind("<1>", lambda event: self.output.focus_set())
         self.entry_1 = tk.Text(width=75, height=1, padx=5, pady=5)
         self.entry_1.place(x=115, y=5)
         self.entry_2 = tk.Text(width=10, height=1, padx=5, pady=5)
@@ -30,23 +31,21 @@ class RenameTool:
         self.button = tk.Button(text="Submit", height=2, width=10, command=self.print_widget)
         self.button.place(x=115, y=80)
         self.exit_but = tk.Button(text="Exit", height=2, width=15, command=lambda: exit(0))
-        self.exit_but.place(x=350, y=600)
+        self.exit_but.place(x=750, y=5)
         self.rename = tk.Button(text="Rename", height=2, width=10, command=self.rename)
         self.rename.place(x=115, y=500)
         self.entry_3 = tk.Text(width=75, height=1, padx=5, pady=5)
         self.entry_3.place(x=115, y=450)
         self.get_dir_button = tk.Button(text="Open", height=2, width=10, command=self.select_path)
         self.get_dir_button.place(x=325, y=80)
+        self.opt_menu = tk.Listbox(self.win, width=65,height=10,font='Consolas 18')
+
 
     def provide_option(self, files):
-        if self.opt_menu is not None:
-            self.clear_prev()
-        question = files
-        self.tkvar = tk.StringVar(self.win) # noqa
-        self.tkvar.set(question[0])
-        self.opt_menu = tk.OptionMenu(self.win, self.tkvar, *question)
-        self.opt_menu.config(font=('Consolas', '13'))
-        self.opt_menu.place(x=350, y=500)
+        self.opt_menu = tk.Listbox(self.win, bd=0, width=65,height=10, font='Consolas 16')
+        for file in files:
+            self.opt_menu.insert('end', f'  {file}')
+        self.opt_menu.place(x=225, y=500)
 
     def clear_prev(self):
         self.opt_menu.place_forget()
@@ -72,9 +71,9 @@ class RenameTool:
 
     def rename(self):
         if self.opt_menu is not None:
-            option = self.tkvar.get()
+            option = self.opt_menu.get('active').strip()
             fpath = self.root_path[-1]
-            name = self.entry_3.get(1.0,tk.END).replace("\n", "")
+            name = self.entry_3.get(1.0, tk.END).replace("\n", "")
             if name != "":
                 os.rename(f'{fpath}/{option}',f'{fpath}/{name}')
                 self.entry_3.delete(1.0, tk.END)
