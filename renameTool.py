@@ -42,7 +42,10 @@ class RenameTool:
 
 
     def provide_option(self, files):
-        self.opt_menu = tk.Listbox(self.win, bd=0, width=65,height=10, font='Consolas 16')
+         if platform.system() == "Windows":
+            self.opt_menu = tk.Listbox(self.win, width=65, height=10, font='Consolas 12')
+        else:
+            self.opt_menu = tk.Listbox(self.win, width=65, height=10, font='Consolas 16')
         for file in files:
             self.opt_menu.insert('end', f'  {file}')
         self.opt_menu.place(x=225, y=500)
