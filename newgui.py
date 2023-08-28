@@ -189,7 +189,10 @@ class RenameTool:
             command=self.__on_replace_select,
         )
         self.apply_option = Button(
-            self.label_frames["options"], text="Apply", state="disabled",command=self.__preview
+            self.label_frames["options"],
+            text="Apply",
+            state="disabled",
+            command=self.__preview,
         )
         self.confirm_rename = Button(
             self.label_frames["options"], text="Confirm Rename", state="disabled"
@@ -276,13 +279,13 @@ class RenameTool:
         for btn in self.radio_group["options"].values():
             btn.config(state=btn_state)
         if any_selected != 0:
-            self.apply_option.config(state='normal')
+            self.apply_option.config(state="normal")
             self.__bool_vars["use_rename_regex"].set(any_selected > 1)
             self.new_name_entry.config(state="normal")
             self.label_frames["rename"].config(text=f"Rename - {any_selected} items")
             self.label_frames["options"].config(text=f"Options - {any_selected} items")
         else:
-            self.apply_option.config(state='disabled')
+            self.apply_option.config(state="disabled")
             self.__bool_vars["use_rename_regex"].set(False)
             self.new_name_entry.config(state="disabled")
             self.label_frames["rename"].config(text="Rename")
@@ -296,23 +299,46 @@ class RenameTool:
 
     def __preview(self):
         option = self.__str_vars["options"].get()
-        new_name = self.__str_vars["rename"].get()
+        field_value = self.__str_vars["rename"].get()
         rename_list: list[tuple[str, str]] = []
+        split_ext = re.compile(r"([^.]*)\.(.*)")
         for item in self._file_list.selection():
             value = self._file_list.item(item).get("values")[0]
+
             match option:
                 case "#addprefix":
-                    rename_list.append((new_name + value, value))
-                    print(new_name + value)
+                    rename_list.append((field_value + value, value))
+                    print(field_value + value)
+                case "#rmprefix":
+                    if value.startswith(field_value):
+                        rename_list.append((value[len(field_value) :], field_value))
+                case "#addsuffix":
+                    file_match = split_ext.match(value)
+                    if file_match is not None:
+                        file_name, ext = file_match.group(1), file_match.group(2)
+                        file_name = file_name + field_value + "." + ext
+                        rename_list.append((file_name, value))
+                case "#rmsuffix":
+                    file_match = split_ext.match(value)
+                    if file_match is not None:
+                        file_name, ext = file_match.group(1), file_match.group(2)
+                        file_name = file_name.removesuffix(field_value) + "." + ext
+                        rename_list.append((file_name, value))
+                case "#replace":
+                    pass
+                case "#newpatt":
+                    pass
                 case _:
-                    rename_list.append((new_name, value))
-                    print(new_name)
+                    rename_list.append((field_value, value))
+                    print(field_value)
         self.__add_to_preview(rename_list=rename_list)
 
     def __add_to_preview(self, rename_list: list[tuple[str, str]]):
+        self._renamed_list.config(selectmode="extended")
         self._renamed_list.delete(*self._renamed_list.get_children())
         for items in rename_list:
             self._renamed_list.insert("", END, values=items)
+        self._renamed_list.config(selectmode="none")
 
     def __browse(self):
         file_path = filedialog.askdirectory()
