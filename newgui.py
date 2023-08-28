@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
 from os import name
-import platform
-from tkinter import filedialog, messagebox, StringVar, BooleanVar
+from tkinter import filedialog, StringVar, BooleanVar
+from tkinter import Event
 from tkinter.ttk import (
     Entry,
     Button,
@@ -11,10 +11,9 @@ from tkinter.ttk import (
     Checkbutton,
     Treeview,
     Scrollbar,
-    Combobox,
-    Style,
+    Radiobutton,
 )
-from tkinter import font, END, Listbox, Text, Tk, BOTH, X
+from tkinter import font, END, Text, Tk, BOTH, X
 import re
 import ctypes
 from mimetypes import init, guess_type
@@ -66,9 +65,13 @@ class RenameTool:
         self.visual_frame.rowconfigure(1, weight=1, uniform="vert")
 
         self.label_frames: dict[str, Labelframe] = {}
+        self.radio_group: dict[str, dict[str, Radiobutton]] = {}
         self.__str_vars: dict[str, StringVar] = {
             "path": StringVar(),
             "filter": StringVar(),
+            "rename": StringVar(),
+            "options": StringVar(value="#addprefix"),
+            "replace": StringVar(),
         }
         self._file_list: Treeview
         self.__bool_vars: dict[str, BooleanVar] = {
@@ -88,7 +91,10 @@ class RenameTool:
         path_entry.config(state="disabled")
         path_entry.pack(padx=10, pady=5, expand=1, fill=X)
         self.confirm_btn = Button(
-            self.label_frames["path"], text="Confirm", command=self.on_path_confirm
+            self.label_frames["path"],
+            text="Confirm",
+            command=self.on_path_confirm,
+            style="TButton",
         )
         self.confirm_btn.config(state="disabled")
         self.confirm_btn.pack(padx=10, pady=5, anchor="se", side="right")
@@ -114,45 +120,110 @@ class RenameTool:
         apply_filter.pack(padx=10, pady=5, anchor="se")
         self.label_frames["filter"].grid(row=1, column=0, padx=10, pady=5, sticky="new")
         # filter --------------------
+
         # rename --------------------
         self.label_frames["rename"] = Labelframe(self.field_frame, text="Rename")
-        new_name_entry = Entry(
-            self.label_frames["rename"],
+        self.label_frames["rename"].columnconfigure(0, weight=1, uniform="rename")
+        self.new_name_entry = Entry(
+            self.label_frames["rename"], textvariable=self.__str_vars["rename"]
         )
-        new_name_entry.pack(padx=10, pady=5, expand=1, fill=X)
-        use_rename_reg = Checkbutton(
-            self.label_frames["rename"],
-            text="Use Regex",
-            variable=self.__bool_vars["use_rename_regex"],
+        self.replace_char = Entry(
+            self.label_frames["rename"], textvariable=self.__str_vars["replace"]
         )
-        use_rename_reg.pack(padx=10, pady=10, anchor="sw", side="left")
-        apply_rename = Button(
-            self.label_frames["rename"],
-            text="Apply",
+        self.new_name_entry.config(state="disabled")
+        self.new_name_entry.grid(padx=10, pady=10, row=0, column=0, sticky="ew")
+        self.replace_char.grid(padx=10, pady=10, row=1, column=0, sticky="ew")
+        self.replace_char.grid_remove()
+        self.label_frames["options"] = Labelframe(
+            self.label_frames["rename"], text="Options"
         )
-        apply_rename.pack(padx=10, pady=5, anchor="se")
+        self.label_frames["options"].columnconfigure(0, weight=1, uniform="optrad")
+        self.label_frames["options"].columnconfigure(1, weight=1, uniform="optrad")
+        self.radio_group["options"] = {}
+        self.radio_group["options"]["add_prefix"] = Radiobutton(
+            self.label_frames["options"],
+            text="Add Prefix",
+            value="#addprefix",
+            variable=self.__str_vars["options"],
+            state="disabled",
+            command=self.__on_replace_select,
+        )
+        self.radio_group["options"]["remove_prefix"] = Radiobutton(
+            self.label_frames["options"],
+            text="Remove Prefix",
+            value="#rmprefix",
+            variable=self.__str_vars["options"],
+            state="disabled",
+            command=self.__on_replace_select,
+        )
+        self.radio_group["options"]["add_suffix"] = Radiobutton(
+            self.label_frames["options"],
+            text="Add Suffix",
+            value="#addsuffix",
+            variable=self.__str_vars["options"],
+            state="disabled",
+            command=self.__on_replace_select,
+        )
+        self.radio_group["options"]["remove_suffix"] = Radiobutton(
+            self.label_frames["options"],
+            text="Remove Suffix",
+            value="#rmsuffix",
+            variable=self.__str_vars["options"],
+            state="disabled",
+            command=self.__on_replace_select,
+        )
+        self.radio_group["options"]["replace"] = Radiobutton(
+            self.label_frames["options"],
+            text="Replace",
+            value="#replace",
+            variable=self.__str_vars["options"],
+            state="disabled",
+            command=self.__on_replace_select,
+        )
+        self.radio_group["options"]["new_name_patt"] = Radiobutton(
+            self.label_frames["options"],
+            text="New name pattern",
+            value="#newpatt",
+            variable=self.__str_vars["options"],
+            state="disabled",
+            command=self.__on_replace_select,
+        )
+        self.apply_option = Button(
+            self.label_frames["options"], text="Apply", state="disabled",command=self.__preview
+        )
+        self.confirm_rename = Button(
+            self.label_frames["options"], text="Confirm Rename", state="disabled"
+        )
+        self.clear_new = Button(
+            self.label_frames["options"], text="Clear New Names", state="disabled"
+        )
+
+        self.radio_group["options"]["add_prefix"].grid(
+            row=0, column=0, pady=5, padx=15, sticky="ew"
+        )
+        self.radio_group["options"]["remove_prefix"].grid(
+            row=1, column=0, pady=5, padx=15, sticky="ew"
+        )
+        self.radio_group["options"]["add_suffix"].grid(
+            row=2, column=0, pady=5, padx=15, sticky="ew"
+        )
+        self.radio_group["options"]["remove_suffix"].grid(
+            row=3, column=0, pady=5, padx=15, sticky="ew"
+        )
+        self.radio_group["options"]["replace"].grid(
+            row=4, column=0, pady=5, padx=15, sticky="ew"
+        )
+        self.radio_group["options"]["new_name_patt"].grid(
+            row=5, column=0, pady=5, padx=15, sticky="ew"
+        )
+        self.apply_option.grid(row=3, column=1, pady=5, padx=15, sticky="ew")
+        self.confirm_rename.grid(row=4, column=1, pady=5, padx=15, sticky="ew")
+        self.clear_new.grid(row=5, column=1, pady=5, padx=15, sticky="ew")
+        self.label_frames["options"].grid(
+            padx=10, pady=10, row=2, column=0, sticky="ew"
+        )
         self.label_frames["rename"].grid(row=3, column=0, padx=10, pady=5, sticky="new")
         # rename --------------------
-        # options --------------------
-        self.label_frames["options"] = Labelframe(self.field_frame, text="Options")
-        add_selected = Button(self.label_frames["options"], text="Preview")
-        add_selected.grid(
-            row=0,
-            column=0,
-            padx=10,
-            pady=10,
-        )
-        rename_selected = Button(self.label_frames["options"], text="Rename")
-        rename_selected.grid(
-            row=0,
-            column=1,
-            padx=10,
-            pady=10,
-        )
-        self.label_frames["options"].grid(
-            row=4, column=0, padx=10, pady=5, sticky="new"
-        )
-        # options --------------------
 
         # trees ---------------------
         file_container = Frame(self.visual_frame, name="file_container")
@@ -163,7 +234,7 @@ class RenameTool:
             file_container, columns=("file_names"), show="headings"
         )
         self._file_list.heading("file_names", text="File Name")
-
+        self._file_list.bind("<<TreeviewSelect>>", self._on_file_list)
         tree_scroll = Scrollbar(file_container, orient="vertical")
         tree_scroll.config(command=self._file_list.yview)
         self._file_list.config(yscrollcommand=tree_scroll.set)
@@ -197,6 +268,51 @@ class RenameTool:
 
         renamed_scroll.grid(row=0, column=1, sticky="nse")
         renamed_container.grid(row=1, column=0, sticky="nsew")
+
+    def _on_file_list(self, evt: Event):
+        tree_v: Treeview = evt.widget
+        any_selected = len(tree_v.selection())
+        btn_state = "normal" if any_selected > 1 else "disabled"
+        for btn in self.radio_group["options"].values():
+            btn.config(state=btn_state)
+        if any_selected != 0:
+            self.apply_option.config(state='normal')
+            self.__bool_vars["use_rename_regex"].set(any_selected > 1)
+            self.new_name_entry.config(state="normal")
+            self.label_frames["rename"].config(text=f"Rename - {any_selected} items")
+            self.label_frames["options"].config(text=f"Options - {any_selected} items")
+        else:
+            self.apply_option.config(state='disabled')
+            self.__bool_vars["use_rename_regex"].set(False)
+            self.new_name_entry.config(state="disabled")
+            self.label_frames["rename"].config(text="Rename")
+            self.label_frames["options"].config(text="Options")
+
+    def __on_replace_select(self):
+        if self.__str_vars["options"].get() == "#replace":
+            self.replace_char.grid()
+        else:
+            self.replace_char.grid_remove()
+
+    def __preview(self):
+        option = self.__str_vars["options"].get()
+        new_name = self.__str_vars["rename"].get()
+        rename_list: list[tuple[str, str]] = []
+        for item in self._file_list.selection():
+            value = self._file_list.item(item).get("values")[0]
+            match option:
+                case "#addprefix":
+                    rename_list.append((new_name + value, value))
+                    print(new_name + value)
+                case _:
+                    rename_list.append((new_name, value))
+                    print(new_name)
+        self.__add_to_preview(rename_list=rename_list)
+
+    def __add_to_preview(self, rename_list: list[tuple[str, str]]):
+        self._renamed_list.delete(*self._renamed_list.get_children())
+        for items in rename_list:
+            self._renamed_list.insert("", END, values=items)
 
     def __browse(self):
         file_path = filedialog.askdirectory()
