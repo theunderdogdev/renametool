@@ -17,6 +17,9 @@ from tkinter import font, END, Text, Tk, BOTH, X
 import re
 import ctypes
 from mimetypes import init, guess_type
+from rich import traceback, print
+traceback.install()
+
 
 FONT_SIZE = 16
 
@@ -37,7 +40,6 @@ COLORS = {
 color schemes for file types
 music -> emerald500
 """
-
 
 class RenameTool:
     def __init__(self, title) -> None:
@@ -70,7 +72,7 @@ class RenameTool:
             "path": StringVar(),
             "filter": StringVar(),
             "rename": StringVar(),
-            "options": StringVar(value="#addprefix"),
+            "options": StringVar(value="#newpatt"),
             "replace": StringVar(),
         }
         self._file_list: Treeview
@@ -198,7 +200,7 @@ class RenameTool:
             self.label_frames["options"], text="Confirm Rename", state="disabled"
         )
         self.clear_new = Button(
-            self.label_frames["options"], text="Clear New Names", state="disabled"
+            self.label_frames["options"], text="Clear New Names", command=lambda: self._clear_child_items(self._renamed_list)
         )
 
         self.radio_group["options"]["add_prefix"].grid(
@@ -237,7 +239,7 @@ class RenameTool:
             file_container, columns=("file_names"), show="headings"
         )
         self._file_list.heading("file_names", text="File Name")
-        self._file_list.bind("<<TreeviewSelect>>", self._on_file_list)
+        self._file_list.bind("<<TreeviewSelect>>", self._on_file_list_select)
         tree_scroll = Scrollbar(file_container, orient="vertical")
         tree_scroll.config(command=self._file_list.yview)
         self._file_list.config(yscrollcommand=tree_scroll.set)
@@ -272,15 +274,20 @@ class RenameTool:
         renamed_scroll.grid(row=0, column=1, sticky="nse")
         renamed_container.grid(row=1, column=0, sticky="nsew")
 
-    def _on_file_list(self, evt: Event):
+    def _on_file_list_select(self, evt: Event):
         tree_v: Treeview = evt.widget
         any_selected = len(tree_v.selection())
-        btn_state = "normal" if any_selected > 1 else "disabled"
-        for btn in self.radio_group["options"].values():
+        btn_state = "normal" if any_selected != 0 else "disabled"
+        for key, btn in self.radio_group["options"].items():
             btn.config(state=btn_state)
         if any_selected != 0:
             self.apply_option.config(state="normal")
             self.__bool_vars["use_rename_regex"].set(any_selected > 1)
+            if any_selected > 1:
+                self.__str_vars["options"].set('#addprefix')
+            else:
+                self.__str_vars["options"].set('#newpatt')
+
             self.new_name_entry.config(state="normal")
             self.label_frames["rename"].config(text=f"Rename - {any_selected} items")
             self.label_frames["options"].config(text=f"Options - {any_selected} items")
@@ -290,33 +297,37 @@ class RenameTool:
             self.new_name_entry.config(state="disabled")
             self.label_frames["rename"].config(text="Rename")
             self.label_frames["options"].config(text="Options")
+            self.__str_vars["options"].set('#newpatt')
 
     def __on_replace_select(self):
         if self.__str_vars["options"].get() == "#replace":
             self.replace_char.grid()
         else:
             self.replace_char.grid_remove()
-
+    def _prefill(self, text: str)-> str:
+        date_filler = re.compile(r".*(?<=\!d)(\{\d{4}-\d{2}-\d{2}\})?")
+        
+        return ""
     def __preview(self):
         option = self.__str_vars["options"].get()
+        sel_count = len(self._file_list.selection())
         field_value = self.__str_vars["rename"].get()
         rename_list: list[tuple[str, str]] = []
         split_ext = re.compile(r"([^.]*)\.(.*)")
+        new_patt_count = 1
         for item in self._file_list.selection():
             value = self._file_list.item(item).get("values")[0]
-
             match option:
                 case "#addprefix":
                     rename_list.append((field_value + value, value))
-                    print(field_value + value)
                 case "#rmprefix":
-                    if value.startswith(field_value):
-                        rename_list.append((value[len(field_value) :], field_value))
+                    file_name = value.removeprefix(field_value)
+                    rename_list.append((file_name, value))
                 case "#addsuffix":
                     file_match = split_ext.match(value)
                     if file_match is not None:
                         file_name, ext = file_match.group(1), file_match.group(2)
-                        file_name = file_name + field_value + "." + ext
+                        file_name = file_name + field_value.rstrip() + "." + ext
                         rename_list.append((file_name, value))
                 case "#rmsuffix":
                     file_match = split_ext.match(value)
@@ -325,20 +336,38 @@ class RenameTool:
                         file_name = file_name.removesuffix(field_value) + "." + ext
                         rename_list.append((file_name, value))
                 case "#replace":
-                    pass
+                    file_match = split_ext.match(value)
+                    if file_match is not None:
+                        file_name, ext = file_match.group(1), file_match.group(2)
+                        replace_val = self.__str_vars["replace"].get()
+                        file_name = (
+                            file_name.replace(field_value, replace_val) + "." + ext
+                        )
+                        rename_list.append((file_name, value))
                 case "#newpatt":
-                    pass
+                    file_match = split_ext.match(value)
+                    if file_match is not None:
+                        _, ext = file_match.group(1), file_match.group(2)
+                        if sel_count > 1:
+                            file_name = f"{field_value}-{new_patt_count}.{ext}"
+                            new_patt_count += 1
+                        else:
+                            file_name = field_value + "." + ext
+                        rename_list.append((file_name, value))
+                        print(file_name)
                 case _:
-                    rename_list.append((field_value, value))
-                    print(field_value)
+                    print("No Match")
         self.__add_to_preview(rename_list=rename_list)
 
     def __add_to_preview(self, rename_list: list[tuple[str, str]]):
         self._renamed_list.config(selectmode="extended")
-        self._renamed_list.delete(*self._renamed_list.get_children())
+        self._clear_child_items(self._renamed_list)
         for items in rename_list:
             self._renamed_list.insert("", END, values=items)
         self._renamed_list.config(selectmode="none")
+
+    def _clear_child_items(self, _tree: Treeview):
+        _tree.delete(*_tree.get_children())
 
     def __browse(self):
         file_path = filedialog.askdirectory()
@@ -356,7 +385,7 @@ class RenameTool:
         return os.listdir(path=path)
 
     def add_to_filelist(self, files_names: list[str]):
-        self._file_list.delete(*self._file_list.get_children())
+        self._clear_child_items(self._file_list)
         for content in files_names:
             self._file_list.insert("", END, values=(content, ""), tags="audio")
 
