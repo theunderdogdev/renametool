@@ -1,8 +1,7 @@
 import os
 from pathlib import Path
 from os import name
-from tkinter import filedialog, StringVar, BooleanVar
-from tkinter import Event
+from tkinter import filedialog, StringVar, BooleanVar, Event, messagebox
 from tkinter.ttk import (
     Entry,
     Button,
@@ -13,11 +12,14 @@ from tkinter.ttk import (
     Scrollbar,
     Radiobutton,
 )
+from datetime import datetime
 from tkinter import font, END, Text, Tk, BOTH, X
 import re
+from re import Match
 import ctypes
 from mimetypes import init, guess_type
 from rich import traceback, print
+
 traceback.install()
 
 
@@ -40,6 +42,7 @@ COLORS = {
 color schemes for file types
 music -> emerald500
 """
+
 
 class RenameTool:
     def __init__(self, title) -> None:
@@ -200,7 +203,9 @@ class RenameTool:
             self.label_frames["options"], text="Confirm Rename", state="disabled"
         )
         self.clear_new = Button(
-            self.label_frames["options"], text="Clear New Names", command=lambda: self._clear_child_items(self._renamed_list)
+            self.label_frames["options"],
+            text="Clear New Names",
+            command=lambda: RenameTool.clear_child_items(self._renamed_list),
         )
 
         self.radio_group["options"]["add_prefix"].grid(
@@ -284,9 +289,9 @@ class RenameTool:
             self.apply_option.config(state="normal")
             self.__bool_vars["use_rename_regex"].set(any_selected > 1)
             if any_selected > 1:
-                self.__str_vars["options"].set('#addprefix')
+                self.__str_vars["options"].set("#addprefix")
             else:
-                self.__str_vars["options"].set('#newpatt')
+                self.__str_vars["options"].set("#newpatt")
 
             self.new_name_entry.config(state="normal")
             self.label_frames["rename"].config(text=f"Rename - {any_selected} items")
@@ -297,21 +302,59 @@ class RenameTool:
             self.new_name_entry.config(state="disabled")
             self.label_frames["rename"].config(text="Rename")
             self.label_frames["options"].config(text="Options")
-            self.__str_vars["options"].set('#newpatt')
+            self.__str_vars["options"].set("#newpatt")
 
     def __on_replace_select(self):
         if self.__str_vars["options"].get() == "#replace":
             self.replace_char.grid()
         else:
             self.replace_char.grid_remove()
-    def _prefill(self, text: str)-> str:
-        date_filler = re.compile(r".*(?<=\!d)(\{\d{4}-\d{2}-\d{2}\})?")
-        
-        return ""
+
+    @staticmethod
+    def _prefill(text: str) -> str:
+        __empty_dt_fill = re.compile(r"(\!d\{\})")
+        __empty_dtt_fill = re.compile(r"(\!dt\{\})")
+
+        __value_dt_fill = re.compile(r"(\!d\{)(\d{4}-\d{2}-\d{2})(\})")
+        __value_dtt_fill = re.compile(
+            r"(\!dt\{)(\d{4}-\d{2}-\d{2}\|\d{2}:\d{2}:\d{2})(\})"
+        )
+        today = datetime.now()
+        filled = __empty_dt_fill.sub(today.date().strftime("%Y-%m-%d"), text)
+        filled = __empty_dtt_fill.sub(today.isoformat(), filled)
+        filled = __value_dt_fill.sub(RenameTool._validate_date, filled)
+        filled = __value_dtt_fill.sub(RenameTool._vatlidate_date_time, filled)
+        return filled
+
+    @staticmethod
+    def _validate_date(match_obj: Match) -> str:
+        date_val = match_obj.group(2)
+        print('validating date...')
+        try:
+            datetime.strptime(date_val, "%Y-%m-%d")
+            return date_val
+        except ValueError:
+            messagebox.showinfo("Invalid date", "The date format is invalid")
+            print("Invalid date", date_val)
+            return f"!d{{{date_val}}}"
+
+    @staticmethod
+    def _vatlidate_date_time(match_obj: Match) -> str:
+        date_time_val = match_obj.group(2)
+        try:
+            return datetime.strptime(date_time_val, "%Y-%m-%d|%H:%M:%S").isoformat()
+        except ValueError:
+            print("Invalid", date_time_val)
+            return f"!d{{{date_time_val}}}"
+
     def __preview(self):
         option = self.__str_vars["options"].get()
         sel_count = len(self._file_list.selection())
         field_value = self.__str_vars["rename"].get()
+        includes_filler = re.compile(r"(?<=\!d|dt)(\{[\d:|-]*\})?")
+        if includes_filler.match(field_value) is not None:
+            print('matched')
+            field_value = RenameTool._prefill(field_value)
         rename_list: list[tuple[str, str]] = []
         split_ext = re.compile(r"([^.]*)\.(.*)")
         new_patt_count = 1
@@ -361,12 +404,13 @@ class RenameTool:
 
     def __add_to_preview(self, rename_list: list[tuple[str, str]]):
         self._renamed_list.config(selectmode="extended")
-        self._clear_child_items(self._renamed_list)
+        RenameTool.clear_child_items(self._renamed_list)
         for items in rename_list:
             self._renamed_list.insert("", END, values=items)
         self._renamed_list.config(selectmode="none")
 
-    def _clear_child_items(self, _tree: Treeview):
+    @staticmethod
+    def clear_child_items(_tree: Treeview):
         _tree.delete(*_tree.get_children())
 
     def __browse(self):
@@ -381,11 +425,12 @@ class RenameTool:
     def on_use_regex(self):
         print(self.__bool_vars["use_filter_regex"].get())
 
-    def _get_path_contents(self, path: str | Path):
+    @staticmethod
+    def _get_path_contents(path: str | Path):
         return os.listdir(path=path)
 
     def add_to_filelist(self, files_names: list[str]):
-        self._clear_child_items(self._file_list)
+        RenameTool.clear_child_items(self._file_list)
         for content in files_names:
             self._file_list.insert("", END, values=(content, ""), tags="audio")
 
@@ -410,7 +455,7 @@ class RenameTool:
     def on_path_confirm(self):
         dir_path = self.__str_vars["path"].get()
         _path: Path = Path(dir_path)
-        self.__file_names = self._get_path_contents(_path)
+        self.__file_names = RenameTool._get_path_contents(_path)
         self.add_to_filelist(self.__file_names)
         self.confirm_btn.config(state="disabled")
 

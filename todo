@@ -1,2 +1,3 @@
-[] Add fillers support in rename field Ex: \d for date \dt for time stamp
-[] For default case if None selected add identifier like uuid or date
+[x] Add fillers support in rename field Ex: \d for date \dt for date time
+[ ] Add filler parameter support for previous days using -1, -2, -100
+[ ] For default case if None selected add identifier like uuid or date
