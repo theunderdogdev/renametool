@@ -40,6 +40,7 @@ def _prefill(text: str) -> str:
     return filled
 
 
-# filled_date = _prefill("Empty date: !d{}\nFilled Date: !d{2022-01-32}\nEmpty Datetime: !dt{}\nFilled Datetime: !dt{2022-01-09|12:20:22}")
-fill_match = re.compile(r"(?<=\!d|dt)(\{[0-9:|-]*\})?")
-print(fill_match.findall("!-Hello"))
+filled_date = _prefill("Empty date: !d{}\nFilled Date: !d{2022-01-32}\nEmpty Datetime: !dt{}\nFilled Datetime: !dt{2022-01-09|12:20:22}")
+fill_match = re.compile(r"(?<=\!d|dt)(\{[\d:|-]*\})?",  re.DOTALL)
+print(fill_match.findall("Empty date: !d{}\nFilled Date: !d{2022-01-32}\nEmpty Datetime: !dt{}\nFilled Datetime: !dt{2022-01-09|12:20:22}"))
+print(filled_date)

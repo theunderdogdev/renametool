@@ -19,9 +19,10 @@ from re import Match
 import ctypes
 from mimetypes import init, guess_type
 from rich import traceback, print
-
+from rich.console import Console
 traceback.install()
 
+cnsl = Console()
 
 FONT_SIZE = 16
 
@@ -329,13 +330,13 @@ class RenameTool:
     @staticmethod
     def _validate_date(match_obj: Match) -> str:
         date_val = match_obj.group(2)
-        print('validating date...')
+        cnsl.log('validating date...')
         try:
             datetime.strptime(date_val, "%Y-%m-%d")
             return date_val
         except ValueError:
             messagebox.showinfo("Invalid date", "The date format is invalid")
-            print("Invalid date", date_val)
+            cnsl.log("Invalid date", date_val)
             return f"!d{{{date_val}}}"
 
     @staticmethod
@@ -344,7 +345,7 @@ class RenameTool:
         try:
             return datetime.strptime(date_time_val, "%Y-%m-%d|%H:%M:%S").isoformat()
         except ValueError:
-            print("Invalid", date_time_val)
+            cnsl.log("Invalid", date_time_val)
             return f"!d{{{date_time_val}}}"
 
     def __preview(self):
@@ -352,8 +353,10 @@ class RenameTool:
         sel_count = len(self._file_list.selection())
         field_value = self.__str_vars["rename"].get()
         includes_filler = re.compile(r"(?<=\!d|dt)(\{[\d:|-]*\})?")
-        if includes_filler.match(field_value) is not None:
-            print('matched')
+        found = [mtch for mtch in includes_filler.findall(field_value) if mtch != '']
+        cnsl.log(found)
+        if len(found) > 0:
+            cnsl.log('matched')
             field_value = RenameTool._prefill(field_value)
         rename_list: list[tuple[str, str]] = []
         split_ext = re.compile(r"([^.]*)\.(.*)")
@@ -397,9 +400,9 @@ class RenameTool:
                         else:
                             file_name = field_value + "." + ext
                         rename_list.append((file_name, value))
-                        print(file_name)
+                        cnsl.log(file_name)
                 case _:
-                    print("No Match")
+                    cnsl.log("No Match")
         self.__add_to_preview(rename_list=rename_list)
 
     def __add_to_preview(self, rename_list: list[tuple[str, str]]):
@@ -420,10 +423,10 @@ class RenameTool:
             self.confirm_btn.config(state="normal")
         else:
             self.confirm_btn.config(state="disabled")
-            print("Cancelled")
+            cnsl.log("Cancelled")
 
     def on_use_regex(self):
-        print(self.__bool_vars["use_filter_regex"].get())
+        cnsl.log(self.__bool_vars["use_filter_regex"].get())
 
     @staticmethod
     def _get_path_contents(path: str | Path):
@@ -435,7 +438,7 @@ class RenameTool:
             self._file_list.insert("", END, values=(content, ""), tags="audio")
 
     def _apply_filter(self):
-        # print("yes")
+        # cnsl.log("yes")
         file_list = []
         filt_str = self.__str_vars["filter"].get()
         if self.__bool_vars["use_filter_regex"].get():
@@ -449,7 +452,7 @@ class RenameTool:
             file_list = list(
                 filter(lambda x: filt_str in x or filt_str == x, self.__file_names)
             )
-        # print(file_list)
+        # cnsl.log(file_list)
         self.add_to_filelist(file_list)
 
     def on_path_confirm(self):
